@@ -48,8 +48,7 @@ public class RecyclerPageView extends RecyclerView {
      * 在设置Adapter的时候进行初始化
      */
     public void setAdapter(Adapter adapter, int pageItemSize) {
-        this.pageItemSize = pageItemSize;
-        manager = new GridLayoutManager(getContext(), pageItemSize);
+        GridLayoutManager manager = new GridLayoutManager(getContext(), pageItemSize);
         manager.setOrientation(HORIZONTAL);
         setLayoutManager(manager);
         setAdapter(adapter);
@@ -60,6 +59,8 @@ public class RecyclerPageView extends RecyclerView {
      */
     @Override
     public void setAdapter(Adapter adapter) {
+        manager = (GridLayoutManager) getLayoutManager();
+        pageItemSize = manager.getSpanCount();
         PageSnapHelper snapHelper = new PageSnapHelper();
         snapHelper.attachToRecyclerView(this);
         super.setAdapter(adapter);
