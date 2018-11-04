@@ -1,11 +1,18 @@
 package com.yfbx.recyclerpageview;
 
 import android.content.Context;
-import android.os.Handler;
+import android.support.annotation.LayoutRes;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
+import android.util.Log;
+import android.view.View;
+
+import com.yfbx.recyclerpageview.adapter.OnBindViewListener;
+import com.yfbx.recyclerpageview.adapter.PageAdapter;
+
+import java.util.List;
 
 /**
  * Author:Edward
@@ -17,30 +24,47 @@ public class RecyclerPageView extends RecyclerView {
 
     private static final String TAG = "RecyclerPageView";
 
-    private boolean isHandled;
-    private boolean btnFlag;
-    private int oldState;
-    private int draggingX = 0;
-    private int settingX = 0;
-
-    private Handler handler;
+    private ScrollHelper helper;
     private GridLayoutManager manager;
-    private int pageItemSize;
-    private boolean isScrolling;
     private OnRecyclerPageChangeListener pageChangeListener;
     private OnLoadMoreListener loadMoreListener;
 
+    private int pageItemSize;
+    private int loadedPageIndex;
+    private int computeTotalPage;
+    private View emptyView;
+
 
     public RecyclerPageView(Context context) {
-        super(context);
+        this(context, null);
     }
 
     public RecyclerPageView(Context context, @Nullable AttributeSet attrs) {
-        super(context, attrs);
+        this(context, attrs, 0);
     }
 
     public RecyclerPageView(Context context, @Nullable AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        helper = new ScrollHelper(this);
+    }
+
+    @Override
+    public void onScrollStateChanged(int state) {
+        super.onScrollStateChanged(state);
+        helper.onScrollStateChanged(state);
+    }
+
+    @Override
+    public void onScrolled(int dx, int dy) {
+        super.onScrolled(dx, dy);
+        helper.onScrolled(dx, dy);
+    }
+
+    /**
+     * 空视图
+     */
+    public void setEmptyView(View emptyView) {
+        this.emptyView = emptyView;
     }
 
     /**
@@ -66,71 +90,65 @@ public class RecyclerPageView extends RecyclerView {
         super.setAdapter(adapter);
     }
 
-    /**
-     * 滑动监听
-     */
-    @Override
-    public void onScrollStateChanged(int state) {
-        super.onScrollStateChanged(state);
-        isScrolling = state != RecyclerView.SCROLL_STATE_IDLE;
-        //按钮翻页
-        if (btnFlag && state == RecyclerView.SCROLL_STATE_IDLE) {
+
+    public void refresh() {
+        loadedPageIndex = 0;
+        Log.i(TAG, "开始刷新,loadedPageIndex = " + loadedPageIndex);
+    }
+
+    public void completeRefresh(int totalItems) {
+        checkEmpty();
+        Log.i(TAG, "数据加载完成,loadedPageIndex = " + loadedPageIndex);
+        Log.i(TAG, "---------------------------------------------");
+        if (loadedPageIndex == 0) {
+            computeTotalPage = (totalItems + pageItemSize - 1) / pageItemSize;
+            Log.i(TAG, "刷新完成，首次预加载");
             notifyPageChange();
-            btnFlag = false;
         }
-        //当滑动状态不为IDLE时，说明重新开始滑动，重置翻页事件处理状态
-        if (state != RecyclerView.SCROLL_STATE_IDLE) {
-            isHandled = false;
-        }
-        //滑动翻页
-        if (state == RecyclerView.SCROLL_STATE_IDLE && oldState == RecyclerView.SCROLL_STATE_SETTLING) {
-            if (draggingX * settingX > 0) {
-                notifyPageChange();
-            }
-            draggingX = 0;
-            settingX = 0;
-        }
-        oldState = state;
+        getAdapter().notifyDataSetChanged();
     }
 
-    @Override
-    public void onScrolled(int dx, int dy) {
-        super.onScrolled(dx, dy);
-        if (handler != null) {
-            handler.post(loadFirstMore);
-        }
-
-        if (oldState == RecyclerView.SCROLL_STATE_DRAGGING && draggingX == 0) {
-            draggingX = dx;
-        }
-        if (oldState == RecyclerView.SCROLL_STATE_SETTLING && settingX == 0) {
-            settingX = dx;
-        }
-    }
 
     /**
      * 翻页事件
      */
-    private void notifyPageChange() {
-        if (!isHandled && pageChangeListener != null) {
-            isHandled = pageChangeListener.onPageChanged(getCurrentPage());
+    protected void notifyPageChange() {
+        if (pageChangeListener != null) {
+            Log.i(TAG, "notifyPageChange: 翻页" + getCurrentPage());
+            pageChangeListener.onPageChanged(getCurrentPage());
         }
-        //最后一页可见
-        int lastVisiblePage = getItemCount() - pageItemSize;
-        if (manager.findLastVisibleItemPosition() > lastVisiblePage) {
-            if (loadMoreListener != null) {
-                loadMoreListener.loadMore(getCurrentPage() + 1);
+        loadNextPage();
+    }
+
+    /**
+     * 加载下一页数据
+     */
+    private void loadNextPage() {
+        if (loadMoreListener != null) {
+            int nextPageIndex = loadedPageIndex + 1;
+            if (nextPageIndex <= computeTotalPage) {
+                loadedPageIndex = nextPageIndex;
+                loadMoreListener.loadMore(nextPageIndex);
             }
         }
     }
 
+    /**
+     * 是否展示空视图
+     */
+    private void checkEmpty() {
+        if (emptyView != null) {
+            int visible = getItemCount() == 0 ? VISIBLE : GONE;
+            emptyView.setVisibility(visible);
+        }
+    }
 
     /**
      * 设置当前页
      */
     public void setCurrentIndex(int index) {
         //如果页面正在滚动则不处理
-        if (isScrolling) {
+        if (helper.isScrolling()) {
             return;
         }
         //页码越界，页码等于当前页码,不处理
@@ -141,7 +159,7 @@ public class RecyclerPageView extends RecyclerView {
         int gap = (index - currentPage) * pageItemSize + 1;
         int position = manager.findFirstVisibleItemPosition() + gap;
         manager.smoothScrollToPosition(this, null, position);
-        btnFlag = true;
+        helper.setFlag(true);
     }
 
     /**
@@ -167,12 +185,19 @@ public class RecyclerPageView extends RecyclerView {
     }
 
     /**
-     * 总页数
+     * 实际已加载总页数
      */
     public int getTotalPage() {
         int pageItemSize = manager.getSpanCount();
         int totalSize = manager.getItemCount();
         return totalSize == 0 ? 0 : (totalSize + pageItemSize - 1) / pageItemSize;
+    }
+
+    /**
+     * 根据返回数据计算的总页数
+     */
+    public int getComputeTotalPage() {
+        return computeTotalPage;
     }
 
     /**
@@ -182,12 +207,6 @@ public class RecyclerPageView extends RecyclerView {
         return manager.getItemCount();
     }
 
-    /**
-     * 每页条目数
-     */
-    public int getPageItemSize() {
-        return pageItemSize;
-    }
 
     /**
      * 设置翻页监听
@@ -201,29 +220,20 @@ public class RecyclerPageView extends RecyclerView {
      */
     public void setOnLoadMoreListener(OnLoadMoreListener loadMoreListener) {
         this.loadMoreListener = loadMoreListener;
-        handler = new Handler();
     }
 
 
-    private Runnable loadFirstMore = new Runnable() {
-        @Override
-        public void run() {
-            loadFirstMore();
-        }
-    };
-
-    /**
-     * 当前总item数量 <= 每页展示item数量时，说明只有一页数据，
-     * 需要自动加载下一页，以触发翻页事件
-     */
-    private void loadFirstMore() {
-        int count = getItemCount();
-        if (count > 0 && count <= pageItemSize) {
-            //重置翻页事件处理状态，否则无法触发翻页事件
-            isHandled = false;
-            notifyPageChange();
-            //最后一页可见,无法触发notifyPageChange中的loadMore,所以单独调用loadMore;
-            loadMoreListener.loadMore(getCurrentPage() + 1);
-        }
+    public <T> void setPageAdapter(@LayoutRes int itemLayout, List<T> data, OnBindViewListener listener) {
+        setAdapter(new PageAdapter<>(itemLayout, data, listener));
     }
+
+    public <T> void setPageAdapter(@LayoutRes int itemLayout, int pageItemSize, List<T> data, OnBindViewListener listener) {
+        setAdapter(new PageAdapter<>(itemLayout, data, listener), pageItemSize);
+    }
+
+    public void notifyDataSetChanged() {
+        getAdapter().notifyDataSetChanged();
+    }
+
+
 }
