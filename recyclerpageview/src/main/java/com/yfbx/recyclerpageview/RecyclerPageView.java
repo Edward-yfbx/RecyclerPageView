@@ -1,18 +1,11 @@
 package com.yfbx.recyclerpageview;
 
 import android.content.Context;
-import android.support.annotation.LayoutRes;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.View;
-
-import com.yfbx.recyclerpageview.adapter.OnBindViewListener;
-import com.yfbx.recyclerpageview.adapter.PageAdapter;
-
-import java.util.List;
 
 /**
  * Author:Edward
@@ -58,6 +51,9 @@ public class RecyclerPageView extends RecyclerView {
     public void onScrolled(int dx, int dy) {
         super.onScrolled(dx, dy);
         helper.onScrolled(dx, dy);
+        if (!helper.isScrolling()) {
+            reset();
+        }
     }
 
     /**
@@ -83,7 +79,12 @@ public class RecyclerPageView extends RecyclerView {
      */
     @Override
     public void setAdapter(Adapter adapter) {
-        manager = (GridLayoutManager) getLayoutManager();
+        LayoutManager layoutManager = getLayoutManager();
+        if (layoutManager instanceof GridLayoutManager) {
+            manager = (GridLayoutManager) getLayoutManager();
+        } else {
+            throw new ClassCastException("必须使用 GridLayoutManager");
+        }
         pageItemSize = manager.getSpanCount();
         PageSnapHelper snapHelper = new PageSnapHelper();
         snapHelper.attachToRecyclerView(this);
@@ -91,20 +92,20 @@ public class RecyclerPageView extends RecyclerView {
     }
 
 
-    public void refresh() {
-        loadedPageIndex = 0;
-        Log.i(TAG, "开始刷新,loadedPageIndex = " + loadedPageIndex);
-    }
-
-    public void completeRefresh(int totalItems) {
-        checkEmpty();
-        Log.i(TAG, "数据加载完成,loadedPageIndex = " + loadedPageIndex);
-        Log.i(TAG, "---------------------------------------------");
-        if (loadedPageIndex == 0) {
-            computeTotalPage = (totalItems + pageItemSize - 1) / pageItemSize;
-            Log.i(TAG, "刷新完成，首次预加载");
+    /**
+     * 刷新重置
+     */
+    private void reset() {
+        if (getItemCount() <= pageItemSize) {
+            loadedPageIndex = 0;
+            scrollToPosition(0);
             notifyPageChange();
         }
+    }
+
+    public void notifyDataSetChanged() {
+        checkEmpty();
+        reset();
         getAdapter().notifyDataSetChanged();
     }
 
@@ -114,7 +115,6 @@ public class RecyclerPageView extends RecyclerView {
      */
     protected void notifyPageChange() {
         if (pageChangeListener != null) {
-            Log.i(TAG, "notifyPageChange: 翻页" + getCurrentPage());
             pageChangeListener.onPageChanged(getCurrentPage());
         }
         loadNextPage();
@@ -126,7 +126,7 @@ public class RecyclerPageView extends RecyclerView {
     private void loadNextPage() {
         if (loadMoreListener != null) {
             int nextPageIndex = loadedPageIndex + 1;
-            if (nextPageIndex <= computeTotalPage) {
+            if (nextPageIndex < computeTotalPage) {
                 loadedPageIndex = nextPageIndex;
                 loadMoreListener.loadMore(nextPageIndex);
             }
@@ -180,8 +180,26 @@ public class RecyclerPageView extends RecyclerView {
      * 获取当前页码
      */
     public int getCurrentPage() {
+        //数据刷新后，未翻页时，页码不正确(可能是复用/缓存导致的)
+        if (loadedPageIndex == 0) {
+            return 0;
+        }
         int firstVisibleItemPosition = manager.findFirstVisibleItemPosition();
         return firstVisibleItemPosition / manager.getSpanCount();
+    }
+
+    /**
+     * 得到后台返回数据总页数
+     */
+    public void setTotalPage(int totalPage) {
+        computeTotalPage = totalPage;
+    }
+
+    /**
+     * 根据后台返回的总items数，计算总页数
+     */
+    public void setTotalCount(int totalCount) {
+        computeTotalPage = (totalCount + pageItemSize - 1) / pageItemSize;
     }
 
     /**
@@ -221,19 +239,4 @@ public class RecyclerPageView extends RecyclerView {
     public void setOnLoadMoreListener(OnLoadMoreListener loadMoreListener) {
         this.loadMoreListener = loadMoreListener;
     }
-
-
-    public <T> void setPageAdapter(@LayoutRes int itemLayout, List<T> data, OnBindViewListener listener) {
-        setAdapter(new PageAdapter<>(itemLayout, data, listener));
-    }
-
-    public <T> void setPageAdapter(@LayoutRes int itemLayout, int pageItemSize, List<T> data, OnBindViewListener listener) {
-        setAdapter(new PageAdapter<>(itemLayout, data, listener), pageItemSize);
-    }
-
-    public void notifyDataSetChanged() {
-        getAdapter().notifyDataSetChanged();
-    }
-
-
 }

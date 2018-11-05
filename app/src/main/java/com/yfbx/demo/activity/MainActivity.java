@@ -48,7 +48,7 @@ public class MainActivity extends Activity implements OnRecyclerPageChangeListen
         super.onResume();
         data.clear();
         loadData(0);
-        recyclerView.refresh();
+
     }
 
     /**
@@ -62,7 +62,11 @@ public class MainActivity extends Activity implements OnRecyclerPageChangeListen
                 data.add(new Bean("Item" + i));
             }
         }
-        recyclerView.completeRefresh(TOTAL_ITEMS);
+
+        if (pageIndex == 0) {
+            recyclerView.setTotalCount(TOTAL_ITEMS);
+        }
+        recyclerView.notifyDataSetChanged();
     }
 
 
