@@ -20,7 +20,7 @@ dependencies {
 
 ### How to Use
 
-使用方法与正常的RecyclerView没有区别，但需要一些特定的设置：
+使用方法与正常的RecyclerView没有区别，但需要一些特定的设置：  
 1.RecyclerPageView其实是一个横向的RecyclerView,且LayoutManager是GridLayoutManager;  
 2.GridLayoutManager 的 SpanCount属性决定页面中Item的数量;  
 3.刷新数据后需要调用recyclerPageView.notifyDataSetChanged();而不是Adaper的notifyDataSetChanged()方法;  
