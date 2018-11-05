@@ -1,6 +1,7 @@
 package com.yfbx.recyclerpageview;
 
 import android.content.Context;
+import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -17,6 +18,7 @@ public class RecyclerPageView extends RecyclerView {
 
     private static final String TAG = "RecyclerPageView";
 
+    private Handler handler = new Handler();
     private ScrollHelper helper;
     private GridLayoutManager manager;
     private OnRecyclerPageChangeListener pageChangeListener;
@@ -52,9 +54,16 @@ public class RecyclerPageView extends RecyclerView {
         super.onScrolled(dx, dy);
         helper.onScrolled(dx, dy);
         if (!helper.isScrolling()) {
-            reset();
+            handler.postDelayed(resetRun, 1000);
         }
     }
+
+    private Runnable resetRun = new Runnable() {
+        @Override
+        public void run() {
+            reset();
+        }
+    };
 
     /**
      * 空视图
@@ -69,7 +78,6 @@ public class RecyclerPageView extends RecyclerView {
      */
     public void setAdapter(Adapter adapter, int pageItemSize) {
         GridLayoutManager manager = new GridLayoutManager(getContext(), pageItemSize);
-        manager.setOrientation(HORIZONTAL);
         setLayoutManager(manager);
         setAdapter(adapter);
     }
@@ -82,6 +90,7 @@ public class RecyclerPageView extends RecyclerView {
         LayoutManager layoutManager = getLayoutManager();
         if (layoutManager instanceof GridLayoutManager) {
             manager = (GridLayoutManager) getLayoutManager();
+            manager.setOrientation(HORIZONTAL);
         } else {
             throw new ClassCastException("必须使用 GridLayoutManager");
         }
@@ -95,7 +104,7 @@ public class RecyclerPageView extends RecyclerView {
     /**
      * 刷新重置
      */
-    private void reset() {
+    private synchronized void reset() {
         if (getItemCount() <= pageItemSize) {
             loadedPageIndex = 0;
             scrollToPosition(0);
