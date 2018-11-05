@@ -103,6 +103,9 @@ public class RecyclerPageView extends RecyclerView {
         }
     }
 
+    /**
+     * 数据刷新
+     */
     public void notifyDataSetChanged() {
         checkEmpty();
         reset();

@@ -5,7 +5,8 @@ import android.support.v7.widget.RecyclerView;
 /**
  * Author: Edward
  * Date: 2018/11/4
- * Description:
+ * Description: 通过RecyclerView的滚动状态变化，来判断翻页事件.
+ * 放在RecyclerPageView中显得臃肿，故抽出做成Helper
  */
 
 

@@ -12,6 +12,9 @@ import android.view.View;
  * Author:Edward
  * Date:2018/11/2
  * Description:
+ * 1.官方的PagerSnapHelper存在bug,一定要用很慢的速度滑动才能翻到下一页，体验极差
+ * 2.LinearSnapHelper也可以实现翻页效果，但轻轻一划，会翻好多页
+ * 3.自定义的PageSnapHelper中的内容来自LinearSnapHelper，只是修改部分代码，以控制每次只翻一页
  */
 
 public class PageSnapHelper extends SnapHelper {
@@ -130,7 +133,7 @@ public class PageSnapHelper extends SnapHelper {
         }
         int distance =
                 Math.abs(distances[0]) > Math.abs(distances[1]) ? distances[0] : distances[1];
-        return (int) Math.round(distance / distancePerChild);
+        return Math.round(distance / distancePerChild);
     }
 
     /**

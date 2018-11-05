@@ -46,6 +46,7 @@ public class MainActivity extends Activity implements OnRecyclerPageChangeListen
     @Override
     protected void onResume() {
         super.onResume();
+        //刷新
         data.clear();
         loadData(0);
 
@@ -66,6 +67,7 @@ public class MainActivity extends Activity implements OnRecyclerPageChangeListen
         if (pageIndex == 0) {
             recyclerView.setTotalCount(TOTAL_ITEMS);
         }
+        //注意不是调用 adapter.notifyDataSetChanged();
         recyclerView.notifyDataSetChanged();
     }
 
@@ -95,18 +97,12 @@ public class MainActivity extends Activity implements OnRecyclerPageChangeListen
      * 翻页监听
      */
     @Override
-    public boolean onPageChanged(int page) {
-        setPageTxt(page);
+    public boolean onPageChanged(int currentPage) {
+        String page = currentPage + 1 + "/" + recyclerView.getComputeTotalPage();
+        pageTxt.setText(page);
         return true;
     }
 
-    /**
-     * 设置页码
-     */
-    private void setPageTxt(int currentPage) {
-        String page = currentPage + 1 + "/" + recyclerView.getComputeTotalPage();
-        pageTxt.setText(page);
-    }
 
     /**
      * 加载下一页数据
