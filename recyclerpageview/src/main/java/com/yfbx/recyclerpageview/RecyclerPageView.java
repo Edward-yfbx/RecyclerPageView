@@ -193,7 +193,7 @@ public class RecyclerPageView extends RecyclerView {
      */
     public int getCurrentPage() {
         //数据刷新后，未翻页时，页码不正确(可能是复用/缓存导致的)
-        if (loadedPageIndex == 0) {
+        if (loadMoreListener != null && loadedPageIndex == 0) {
             return 0;
         }
         int firstVisibleItemPosition = manager.findFirstVisibleItemPosition();
